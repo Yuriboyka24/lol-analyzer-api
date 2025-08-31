@@ -1,4 +1,5 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
+from pydantic import BaseModel
 import openai
 import requests
 import os
@@ -9,10 +10,13 @@ app = FastAPI()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 riot_api_key = os.getenv("RIOT_API_KEY")
 
+# 🔹 Modello per il body
+class MatchRequest(BaseModel):
+    match_url: str
+
 @app.post("/analizar")
-async def analizar(request: Request):
-    data = await request.json()
-    match_url = data.get("match_url")
+async def analizar(req: MatchRequest):
+    match_url = req.match_url
 
     if not match_url:
         return {"error": "Falta el enlace de la partida"}
@@ -51,7 +55,6 @@ def extraer_match_id(url):
 
 
 def generar_prompt(match_data):
-    # Esta función genera el texto que se le envía a GPT-4
     return f"""
     Analiza esta partida de League of Legends con base en los datos JSON:
 
