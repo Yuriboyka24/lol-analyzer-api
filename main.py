@@ -47,8 +47,9 @@ class RiotId(BaseModel):
     platform: str = "euw1"    # es: euw1, na1, kr...
 
 class MatchRequest(BaseModel):
-    match_url: str            # accetta matchId (EUW1_...) o link OP.GG
+    match_url: str            # matchId o link OP.GG
     platform: str = "euw1"
+    use_ai: bool = True       # <— nuovo: permette di disattivare l'AI per test
 
 # ===================== Helpers Riot =====================
 def _retry_get(url: str, headers: dict, timeout: int = 10, retries: int = 2, backoff: float = 0.6):
@@ -243,24 +244,39 @@ def analizar(req: MatchRequest):
     """
     Accetta link OP.GG o matchId, risolve, scarica dettagli dal Match-V5 e (opzionale) genera un feedback AI.
     """
-    if not RIOT_TOKEN:
-        raise HTTPException(500, "RIOT_API_KEY non configurata.")
+    try:
+        if not RIOT_TOKEN:
+            raise HTTPException(500, "RIOT_API_KEY non configurata.")
 
-    match_id = extract_match_id(req.match_url, platform=req.platform)
-    if not match_id:
-        raise HTTPException(
-            400,
-            "Non riesco a estrarre il matchId. Incolla un matchId tipo EUW1_1234567890 o un link OP.GG valido."
-        )
+        match_id = extract_match_id(req.match_url, platform=req.platform)
+        if not match_id:
+            raise HTTPException(
+                400,
+                "Non riesco a estrarre il matchId. Incolla un matchId tipo EUW1_1234567890 o un link OP.GG valido."
+            )
 
-    match_data = riot_get_match(match_id, platform=req.platform)
-    if not match_data:
-        raise HTTPException(404, "Non sono riuscito a ottenere i dati della partita da Riot.")
+        match_data = riot_get_match(match_id, platform=req.platform)
+        if not match_data:
+            raise HTTPException(404, "Non sono riuscito a ottenere i dati della partita da Riot.")
 
-    analysis = analyze_with_openai(match_data) if OPENAI_KEY else "OK: dati partita ottenuti."
-    return {
-        "match_id": match_id,
-        "analisis": analysis,
-        "gameMode": match_data.get("info", {}).get("gameMode", None)
-    }
+        # AI opzionale
+        if req.use_ai and OPENAI_KEY:
+            analysis = analyze_with_openai(match_data)
+        else:
+            analysis = "OK: dati partita ottenuti. (AI disattivata)"
+
+        return {
+            "match_id": match_id,
+            "analisis": analysis,
+            "gameMode": match_data.get("info", {}).get("gameMode", None)
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Evita 502 mascherati: ritorna un 500 JSON leggibile
+        print(f"[ERROR /analizar] {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"Errore interno: {type(e).__name__}")
+
+
 
