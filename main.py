@@ -13,6 +13,9 @@ class MatchRequest(BaseModel):
 @app.get("/")
 def root():
     return {"status": "ok"}
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "LoL Analyzer API is running!"}
 
 @app.post("/analizar")
 async def analizar(req: MatchRequest):
@@ -56,3 +59,4 @@ def generar_prompt(match_data):
     Detecta errores comunes en posicionamiento, builds, farmeo, decisiones, etc.
     Sé claro y didáctico para ayudar al jugador a mejorar.
     """
+
