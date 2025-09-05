@@ -1,4 +1,6 @@
 fastapi
 uvicorn
 requests
-openai
+pydantic
+openai>=1.40.0
+
